@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Marilena 2026</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#FBF7EE">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --paper:#FBF7EE;
+    --ink:#2B2620;
+    --red:#C0463C;
+    --sage:#7A8B6F;
+    --surface:#FFFFFF;
+    --muted:#8A8174;
+    --border:#E8DFCB;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:calc(72px + env(safe-area-inset-bottom));
+  }
+  h1,h2,h3{
+    font-family:'Fraunces', serif;
+    font-weight:650;
+    margin:0;
+  }
+  #loginScreen{
+    position:fixed; inset:0;
+    background:var(--paper);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:18px; padding:24px; z-index:999;
+  }
+  #loginScreen .mark{
+    width:64px;height:64px;border-radius:18px;background:var(--red);
+    display:flex;align-items:center;justify-content:center;
+    color:white;font-family:'Fraunces',serif;font-size:30px;font-weight:650;
+  }
+  #loginScreen input{
+    font-size:20px; padding:14px 16px; border-radius:12px;
+    border:2px solid var(--border); width:240px; text-align:center;
+    background:var(--surface); color:var(--ink);
+  }
+  #loginScreen input:focus{outline:2px solid var(--sage); border-color:var(--sage);}
+  #loginScreen button{
+    font-size:16px; padding:13px 28px; border-radius:12px; border:none;
+    background:var(--ink); color:var(--paper); font-weight:600;
+  }
+  #loginError{color:var(--red); font-size:14px; min-height:18px;}
+
+  header.topbar{
+    padding:22px 18px 14px;
+    position:relative;
+  }
+  header.topbar .dots{
+    position:absolute; top:8px; left:0; right:0;
+    display:flex; gap:10px; justify-content:center;
+  }
+  header.topbar .dots span{
+    width:6px;height:6px;border-radius:50%;background:var(--border);
+  }
+  header.topbar h1{font-size:26px; margin-top:6px;}
+  header.topbar p{margin:2px 0 0; color:var(--muted); font-size:14px;}
+
+  main{padding:0 16px;}
+  .view{display:none;}
+  .view.active{display:block;}
+
+  .day-label{
+    font-family:'Fraunces',serif; font-weight:650; font-size:15px;
+    color:var(--red); margin:22px 0 8px; padding-left:2px;
+  }
+  .day-label:first-child{margin-top:6px;}
+
+  .card{
+    background:var(--surface);
+    border-radius:var(--radius);
+    border-left:4px solid var(--red);
+    box-shadow:0 1px 3px rgba(43,38,32,0.06);
+    padding:12px 14px;
+    margin-bottom:10px;
+    display:flex; justify-content:space-between; gap:10px; align-items:flex-start;
+  }
+  .card.entry{border-left-color:var(--sage);}
+  .card .info{flex:1; min-width:0;}
+  .card .time{font-weight:700; font-size:15px;}
+  .card .subj{font-size:15px; margin-top:2px;}
+  .card .meta{font-size:13px; color:var(--muted); margin-top:2px;}
+  .card .note{font-size:13px; color:var(--ink); margin-top:6px; background:#FBF3DD; padding:6px 8px; border-radius:8px;}
+  .card .actions{display:flex; gap:6px; flex-shrink:0;}
+  .card .actions button{
+    border:none; background:none; font-size:18px; padding:4px; cursor:pointer; color:var(--muted);
+  }
+  .card img.thumb{
+    width:100%; max-width:260px; border-radius:10px; margin-top:8px; display:block;
+  }
+
+  .empty{
+    text-align:center; color:var(--muted); padding:40px 20px; font-size:14px;
+  }
+
+  #dateBar{
+    display:flex; align-items:center; gap:10px; margin:8px 0 16px;
+  }
+  #dateBar input[type=date]{
+    flex:1; padding:10px 12px; border-radius:12px; border:1px solid var(--border);
+    font-size:15px; background:var(--surface); color:var(--ink);
+  }
+
+  .fab{
+    position:fixed; bottom:calc(84px + env(safe-area-inset-bottom)); right:18px;
+    width:56px;height:56px;border-radius:50%; background:var(--red); color:white;
+    border:none; font-size:26px; box-shadow:0 4px 10px rgba(192,70,60,0.4);
+    z-index:50;
+  }
+
+  nav.tabbar{
+    position:fixed; bottom:0; left:0; right:0;
+    background:var(--surface); border-top:1px solid var(--border);
+    display:flex; padding-bottom:env(safe-area-inset-bottom);
+    z-index:60;
+  }
+  nav.tabbar button{
+    flex:1; background:none; border:none; padding:12px 0 10px;
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    color:var(--muted); font-size:12px; font-weight:600;
+  }
+  nav.tabbar button .ic{font-size:20px;}
+  nav.tabbar button.active{color:var(--red);}
+
+  .modal-backdrop{
+    position:fixed; inset:0; background:rgba(43,38,32,0.45);
+    display:none; align-items:flex-end; justify-content:center; z-index:200;
+  }
+  .modal-backdrop.show{display:flex;}
+  .modal{
+    background:var(--paper); border-radius:20px 20px 0 0; width:100%; max-width:480px;
+    padding:20px 18px calc(20px + env(safe-area-inset-bottom)); max-height:88vh; overflow-y:auto;
+  }
+  .modal h2{font-size:20px; margin-bottom:14px;}
+  .field{margin-bottom:12px;}
+  .field label{display:block; font-size:13px; color:var(--muted); margin-bottom:4px; font-weight:600;}
+  .field input, .field select, .field textarea{
+    width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--border);
+    font-size:15px; background:var(--surface); color:var(--ink); font-family:inherit;
+  }
+  .field textarea{min-height:90px; resize:vertical;}
+  .row2{display:flex; gap:10px;}
+  .row2 .field{flex:1;}
+  .modal-actions{display:flex; gap:10px; margin-top:16px;}
+  .modal-actions button{
+    flex:1; padding:13px; border-radius:12px; border:none; font-weight:600; font-size:15px;
+  }
+  .btn-primary{background:var(--ink); color:var(--paper);}
+  .btn-secondary{background:var(--border); color:var(--ink);}
+  .btn-ocr{
+    background:var(--sage); color:white; width:100%; padding:11px; border-radius:10px;
+    border:none; font-weight:600; margin-top:6px; font-size:14px;
+  }
+  .photo-preview{width:100%; border-radius:10px; margin-top:8px; display:none;}
+  .hint{font-size:12px; color:var(--muted); margin-top:4px;}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="mark">M</div>
+  <h1 style="font-size:22px;">Marilena 2026</h1>
+  <input id="passcodeInput" type="password" inputmode="text" placeholder="Κωδικός" autocomplete="off">
+  <div id="loginError"></div>
+  <button onclick="tryLogin()">Είσοδος</button>
+</div>
+
+<div id="app" style="display:none;">
+
+  <header class="topbar">
+    <div class="dots"><span></span><span></span><span></span><span></span><span></span></div>
+    <h1 id="headerTitle">Πρόγραμμα</h1>
+    <p id="headerSubtitle"></p>
+  </header>
+
+  <main>
+    <section class="view active" id="view-schedule"></section>
+
+    <section class="view" id="view-diary">
+      <div id="dateBar">
+        <input type="date" id="diaryDate">
+      </div>
+      <div id="entriesList"></div>
+    </section>
+  </main>
+
+  <button class="fab" id="fabBtn" onclick="openAddModal()">+</button>
+
+  <nav class="tabbar">
+    <button class="active" data-tab="schedule" onclick="switchTab('schedule')">
+      <span class="ic">&#128197;</span>Πρόγραμμα
+    </button>
+    <button data-tab="diary" onclick="switchTab('diary')">
+      <span class="ic">&#128209;</span>Ημερολόγιο
+    </button>
+  </nav>
+</div>
+
+<div class="modal-backdrop" id="scheduleModalBackdrop">
+  <div class="modal">
+    <h2 id="scheduleModalTitle">Νέο μάθημα</h2>
+    <div class="field">
+      <label>Ημέρα</label>
+      <select id="f_day">
+        <option>Δευτέρα</option><option>Τρίτη</option><option>Τετάρτη</option>
+        <option>Πέμπτη</option><option>Παρασκευή</option><option>Σάββατο</option><option>Κυριακή</option>
+      </select>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Ώρα από</label><input type="time" id="f_timeFrom"></div>
+      <div class="field"><label>Ώρα έως</label><input type="time" id="f_timeTo"></div>
+    </div>
+    <div class="field"><label>Μάθημα</label><input type="text" id="f_subject" placeholder="π.χ. Παιδαγωγικά Ι"></div>
+    <div class="field"><label>Αίθουσα / τόπος</label><input type="text" id="f_location" placeholder="προαιρετικό"></div>
+    <div class="field"><label>Υπενθύμιση ειδοποίησης</label><input type="text" id="f_note" placeholder="π.χ. πρέπει να διαβάσω"></div>
+    <input type="hidden" id="f_scheduleId">
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('scheduleModalBackdrop')">Άκυρο</button>
+      <button class="btn-primary" onclick="saveScheduleItem()">Αποθήκευση</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="entryModalBackdrop">
+  <div class="modal">
+    <h2 id="entryModalTitle">Νέα σημείωση</h2>
+    <div class="field"><label>Ημερομηνία</label><input type="date" id="e_date"></div>
+    <div class="field"><label>Μάθημα</label><input type="text" id="e_subject" placeholder="π.χ. Παιδαγωγικά Ι"></div>
+    <div class="field">
+      <label>Φωτογραφία τετραδίου</label>
+      <input type="file" id="e_photo" accept="image/*" capture="environment" onchange="onPhotoSelected(event)">
+      <img id="e_photoPreview" class="photo-preview">
+      <button type="button" class="btn-ocr" id="ocrBtn" style="display:none;" onclick="runOcr()">&#128247; Μετατροπή φωτό σε κείμενο</button>
+      <div class="hint" id="ocrHint"></div>
+    </div>
+    <div class="field"><label>Κείμενο / σημείωση</label><textarea id="e_notes" placeholder="Γράψε εδώ ή χρησιμοποίησε τη μετατροπή φωτό..."></textarea></div>
+    <input type="hidden" id="e_entryId">
+    <input type="hidden" id="e_existingPhotoUrl">
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('entryModalBackdrop')">Άκυρο</button>
+      <button class="btn-primary" id="entrySaveBtn" onclick="saveEntry()">Αποθήκευση</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_URL = 'https://script.google.com/macros/s/AKfycbwGT6cdHEGzHr-UlV37siLmp6FdvcbNzT8JLHUO-Vt2qZ1DkPcSADEeM-EwS3nylfzT/exec';
+const ONESIGNAL_APP_ID = 'PASTE_YOUR_ONESIGNAL_APP_ID_HERE';
+
+let schedule = [];
+let entries = [];
+let selectedPhotoBase64 = null;
+let selectedPhotoMime = null;
+
+function tryLogin(){
+  const code = document.getElementById('passcodeInput').value;
+  apiPost({action:'checkPasscode', code:code}).then(function(res){
+    if(res.ok && res.data.valid){
+      sessionStorage.setItem('marilena_auth','1');
+      showApp();
+    } else {
+      document.getElementById('loginError').textContent = 'Λάθος κωδικός';
+    }
+  }).catch(function(){
+    document.getElementById('loginError').textContent = 'Σφάλμα σύνδεσης — έλεγξε το API_URL';
+  });
+}
+document.getElementById('passcodeInput').addEventListener('keydown', function(e){ if(e.key==='Enter') tryLogin(); });
+
+function showApp(){
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('diaryDate').valueAsDate = new Date();
+  loadSchedule();
+  loadEntries();
+  initOneSignal();
+}
+
+if(sessionStorage.getItem('marilena_auth')==='1'){ showApp(); }
+
+function switchTab(tab){
+  var btns = document.querySelectorAll('.tabbar button');
+  for(var i=0;i<btns.length;i++){ btns[i].classList.toggle('active', btns[i].dataset.tab===tab); }
+  document.getElementById('view-schedule').classList.toggle('active', tab==='schedule');
+  document.getElementById('view-diary').classList.toggle('active', tab==='diary');
+  document.getElementById('headerTitle').textContent = tab==='schedule' ? 'Πρόγραμμα' : 'Ημερολόγιο';
+  document.getElementById('fabBtn').onclick = tab==='schedule' ? openAddScheduleModal : openAddEntryModal;
+}
+document.getElementById('diaryDate').addEventListener('change', renderEntries);
+
+function apiPost(body){
+  return fetch(API_URL, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body: JSON.stringify(body)
+  }).then(function(r){ return r.json(); });
+}
+function apiGet(action, extraParams){
+  extraParams = extraParams || '';
+  return new Promise(function(resolve,reject){
+    var cbName = 'cb_' + Date.now();
+    window[cbName] = function(res){ resolve(res); delete window[cbName]; script.remove(); };
+    var script = document.createElement('script');
+    script.src = API_URL + '?action=' + action + '&callback=' + cbName + extraParams;
+    script.onerror = function(){ reject(new Error('JSONP error')); };
+    document.body.appendChild(script);
+  });
+}
+
+function loadSchedule(){
+  apiGet('getSchedule').then(function(res){
+    if(res.ok){ schedule = res.data; renderSchedule(); }
+  });
+}
+var DAYS_SEIRA = ['Δευτέρα','Τρίτη','Τετάρτη','Πέμπτη','Παρασκευή','Σάββατο','Κυριακή'];
+function renderSchedule(){
+  var el = document.getElementById('view-schedule');
+  if(schedule.length===0){ el.innerHTML = '<div class="empty">Δεν υπάρχουν μαθήματα ακόμα.<br>Πάτησε + για να προσθέσεις.</div>'; return; }
+  var html = '';
+  DAYS_SEIRA.forEach(function(day){
+    var items = schedule.filter(function(s){ return s.day===day; }).sort(function(a,b){ return a.timeFrom.localeCompare(b.timeFrom); });
+    if(items.length===0) return;
+    html += '<div class="day-label">' + day + '</div>';
+    items.forEach(function(s){
+      html += '' +
+      '<div class="card">' +
+        '<div class="info">' +
+          '<div class="time">' + s.timeFrom + ' \u2013 ' + s.timeTo + '</div>' +
+          '<div class="subj">' + escapeHtml(s.subject) + '</div>' +
+          (s.location? '<div class="meta">&#128205; ' + escapeHtml(s.location) + '</div>':'') +
+          (s.note? '<div class="note">&#128276; ' + escapeHtml(s.note) + '</div>':'') +
+        '</div>' +
+        '<div class="actions">' +
+          '<button onclick="editScheduleItem(\'' + s.id + '\')">&#9998;</button>' +
+          '<button onclick="deleteScheduleItem(\'' + s.id + '\')">&#128465;</button>' +
+        '</div>' +
+      '</div>';
+    });
+  });
+  el.innerHTML = html;
+}
+function openAddScheduleModal(){
+  document.getElementById('scheduleModalTitle').textContent = 'Νέο μάθημα';
+  ['f_scheduleId','f_timeFrom','f_timeTo','f_subject','f_location','f_note'].forEach(function(id){ document.getElementById(id).value=''; });
+  document.getElementById('f_day').selectedIndex = 0;
+  document.getElementById('scheduleModalBackdrop').classList.add('show');
+}
+function editScheduleItem(id){
+  var s = schedule.find(function(x){ return x.id===id; });
+  if(!s) return;
+  document.getElementById('scheduleModalTitle').textContent = 'Επεξεργασία μαθήματος';
+  document.getElementById('f_scheduleId').value = s.id;
+  document.getElementById('f_day').value = s.day;
+  document.getElementById('f_timeFrom').value = s.timeFrom;
+  document.getElementById('f_timeTo').value = s.timeTo;
+  document.getElementById('f_subject').value = s.subject;
+  document.getElementById('f_location').value = s.location;
+  document.getElementById('f_note').value = s.note;
+  document.getElementById('scheduleModalBackdrop').classList.add('show');
+}
+function saveScheduleItem(){
+  var id = document.getElementById('f_scheduleId').value;
+  var item = {
+    id: id || undefined,
+    day: document.getElementById('f_day').value,
+    timeFrom: document.getElementById('f_timeFrom').value,
+    timeTo: document.getElementById('f_timeTo').value,
+    subject: document.getElementById('f_subject').value,
+    location: document.getElementById('f_location').value,
+    note: document.getElementById('f_note').value
+  };
+  var action = id ? 'updateScheduleItem' : 'addScheduleItem';
+  apiPost({action:action, item:item}).then(function(){ closeModal('scheduleModalBackdrop'); loadSchedule(); });
+}
+function deleteScheduleItem(id){
+  if(!confirm('Διαγραφή μαθήματος;')) return;
+  apiPost({action:'deleteScheduleItem', id:id}).then(function(){ loadSchedule(); });
+}
+
+function loadEntries(){
+  apiGet('getEntries').then(function(res){
+    if(res.ok){ entries = res.data; renderEntries(); }
+  });
+}
+function renderEntries(){
+  var dateVal = document.getElementById('diaryDate').value;
+  var list = entries.filter(function(e){ return e.date===dateVal; });
+  var el = document.getElementById('entriesList');
+  if(list.length===0){ el.innerHTML = '<div class="empty">Καμία σημείωση για αυτή την ημέρα.</div>'; return; }
+  el.innerHTML = list.map(function(e){
+    return '' +
+    '<div class="card entry">' +
+      '<div class="info">' +
+        (e.subject? '<div class="subj">' + escapeHtml(e.subject) + '</div>':'') +
+        (e.notes? '<div class="meta">' + escapeHtml(e.notes) + '</div>':'') +
+        (e.photoUrl? '<img class="thumb" src="' + e.photoUrl + '">':'') +
+      '</div>' +
+      '<div class="actions">' +
+        '<button onclick="editEntry(\'' + e.id + '\')">&#9998;</button>' +
+        '<button onclick="deleteEntry(\'' + e.id + '\')">&#128465;</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+function openAddEntryModal(){
+  document.getElementById('entryModalTitle').textContent = 'Νέα σημείωση';
+  document.getElementById('e_entryId').value='';
+  document.getElementById('e_subject').value='';
+  document.getElementById('e_notes').value='';
+  document.getElementById('e_existingPhotoUrl').value='';
+  document.getElementById('e_date').value = document.getElementById('diaryDate').value;
+  document.getElementById('e_photoPreview').style.display='none';
+  document.getElementById('ocrBtn').style.display='none';
+  document.getElementById('ocrHint').textContent='';
+  selectedPhotoBase64 = null;
+  document.getElementById('entryModalBackdrop').classList.add('show');
+}
+function editEntry(id){
+  var e = entries.find(function(x){ return x.id===id; });
+  if(!e) return;
+  document.getElementById('entryModalTitle').textContent = 'Επεξεργασία σημείωσης';
+  document.getElementById('e_entryId').value = e.id;
+  document.getElementById('e_date').value = e.date;
+  document.getElementById('e_subject').value = e.subject;
+  document.getElementById('e_notes').value = e.notes;
+  document.getElementById('e_existingPhotoUrl').value = e.photoUrl;
+  var prev = document.getElementById('e_photoPreview');
+  if(e.photoUrl){ prev.src = e.photoUrl; prev.style.display='block'; } else { prev.style.display='none'; }
+  document.getElementById('ocrBtn').style.display='none';
+  document.getElementById('ocrHint').textContent='';
+  selectedPhotoBase64 = null;
+  document.getElementById('entryModalBackdrop').classList.add('show');
+}
+function onPhotoSelected(ev){
+  var file = ev.target.files[0];
+  if(!file) return;
+  selectedPhotoMime = file.type;
+  var reader = new FileReader();
+  reader.onload = function(){
+    selectedPhotoBase64 = reader.result.split(',')[1];
+    document.getElementById('e_photoPreview').src = reader.result;
+    document.getElementById('e_photoPreview').style.display='block';
+    document.getElementById('ocrBtn').style.display='block';
+    document.getElementById('ocrHint').textContent='';
+  };
+  reader.readAsDataURL(file);
+}
+function runOcr(){
+  if(!selectedPhotoBase64) return;
+  var btn = document.getElementById('ocrBtn');
+  btn.textContent = 'Μετατρέπεται...';
+  btn.disabled = true;
+  apiPost({action:'ocrImage', imageBase64:selectedPhotoBase64, mimeType:selectedPhotoMime}).then(function(res){
+    btn.textContent = 'Μετατροπή φωτό σε κείμενο';
+    btn.disabled = false;
+    if(res.ok){
+      var ta = document.getElementById('e_notes');
+      ta.value = (ta.value ? ta.value + '\n\n' : '') + res.data.text.trim();
+      document.getElementById('ocrHint').textContent = 'Έγινε αυτόματη μετατροπή — έλεγξε/διόρθωσε το κείμενο.';
+    } else {
+      document.getElementById('ocrHint').textContent = 'Αποτυχία μετατροπής: ' + res.error;
+    }
+  }).catch(function(){
+    btn.textContent = 'Μετατροπή φωτό σε κείμενο';
+    btn.disabled = false;
+    document.getElementById('ocrHint').textContent = 'Σφάλμα σύνδεσης κατά τη μετατροπή.';
+  });
+}
+function saveEntry(){
+  var id = document.getElementById('e_entryId').value;
+  var entry = {
+    id: id || undefined,
+    date: document.getElementById('e_date').value,
+    subject: document.getElementById('e_subject').value,
+    notes: document.getElementById('e_notes').value
+  };
+  if(selectedPhotoBase64){
+    entry.photoBase64 = selectedPhotoBase64;
+    entry.mimeType = selectedPhotoMime;
+  }
+  var action = id ? 'updateEntry' : 'addEntry';
+  var btn = document.getElementById('entrySaveBtn');
+  btn.textContent = 'Αποθήκευση...'; btn.disabled = true;
+  apiPost({action:action, entry:entry}).then(function(){
+    btn.textContent='Αποθήκευση'; btn.disabled=false;
+    closeModal('entryModalBackdrop');
+    loadEntries();
+  }).catch(function(){ btn.textContent='Αποθήκευση'; btn.disabled=false; });
+}
+function deleteEntry(id){
+  if(!confirm('Διαγραφή σημείωσης;')) return;
+  apiPost({action:'deleteEntry', id:id}).then(function(){ loadEntries(); });
+}
+
+function openAddModal(){ openAddScheduleModal(); }
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+function escapeHtml(s){
+  return (s||'').replace(/[&<>"']/g, function(c){
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+  });
+}
+
+function initOneSignal(){
+  if(!ONESIGNAL_APP_ID || ONESIGNAL_APP_ID.indexOf('PASTE')===0) return;
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  OneSignalDeferred.push(function(OneSignal){
+    OneSignal.init({ appId: ONESIGNAL_APP_ID, allowLocalhostAsSecureOrigin:true }).then(function(){
+      OneSignal.Notifications.requestPermission();
+    });
+  });
+}
+</script>
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+
+</body>
+</html>
