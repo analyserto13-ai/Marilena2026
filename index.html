@@ -111,12 +111,31 @@
     text-align:center; color:var(--muted); padding:40px 20px; font-size:14px;
   }
 
-  #dateBar{
-    display:flex; align-items:center; gap:10px; margin:8px 0 16px;
+  #monthBar{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; margin:8px 0 16px;
   }
-  #dateBar input[type=date]{
-    flex:1; padding:10px 12px; border-radius:12px; border:1px solid var(--border);
-    font-size:15px; background:var(--surface); color:var(--ink);
+  #monthBar button{
+    width:38px;height:38px;border-radius:50%; border:1px solid var(--border); background:var(--surface);
+    color:var(--ink); font-size:14px;
+  }
+  #monthLabel{
+    font-family:'Fraunces',serif; font-weight:650; font-size:17px; flex:1; text-align:center;
+  }
+
+  .label-badge{
+    display:inline-block; padding:3px 12px; border-radius:20px; font-size:14px; font-weight:700; color:white;
+  }
+  .label-red{background:#C0463C;}
+  .label-yellow{background:#C9A227; color:#2B2620;}
+  .label-pink{background:#C9719C;}
+  .label-green{background:#7A8B6F;}
+
+  .label-picker{display:flex; gap:12px; margin-top:4px;}
+  .label-swatch{width:32px;height:32px;border-radius:50%; border:2px solid var(--border); padding:0; cursor:pointer;}
+  .label-swatch.selected{border-color:var(--ink); box-shadow:0 0 0 2px var(--paper), 0 0 0 4px var(--ink);}
+
+  .settings-btn{
+    position:absolute; top:20px; right:16px; background:none; border:none; font-size:20px; color:var(--muted);
   }
 
   .fab{
@@ -187,6 +206,7 @@
 
   <header class="topbar">
     <div class="dots"><span></span><span></span><span></span><span></span><span></span></div>
+    <button class="settings-btn" onclick="changePasscodeFlow()">&#9881;</button>
     <h1 id="headerTitle">Πρόγραμμα</h1>
     <p id="headerSubtitle"></p>
   </header>
@@ -195,8 +215,10 @@
     <section class="view active" id="view-schedule"></section>
 
     <section class="view" id="view-diary">
-      <div id="dateBar">
-        <input type="date" id="diaryDate">
+      <div id="monthBar">
+        <button onclick="changeMonth(-1)">&#9664;</button>
+        <span id="monthLabel"></span>
+        <button onclick="changeMonth(1)">&#9654;</button>
       </div>
       <div id="entriesList"></div>
     </section>
@@ -252,7 +274,17 @@
       <div class="hint" id="ocrHint"></div>
     </div>
     <div class="field"><label>Κείμενο / σημείωση</label><textarea id="e_notes" placeholder="Γράψε εδώ ή χρησιμοποίησε τη μετατροπή φωτό..."></textarea></div>
+    <div class="field">
+      <label>Ετικέτα</label>
+      <div class="label-picker" id="labelPicker">
+        <button type="button" class="label-swatch" style="background:var(--border);" onclick="selectLabel('')"></button>
+        <button type="button" class="label-swatch" style="background:#C0463C;" onclick="selectLabel('red')"></button>
+        <button type="button" class="label-swatch" style="background:#C9A227;" onclick="selectLabel('yellow')"></button>
+        <button type="button" class="label-swatch" style="background:#C9719C;" onclick="selectLabel('pink')"></button>
+      </div>
+    </div>
     <input type="hidden" id="e_entryId">
+    <input type="hidden" id="e_label">
     <input type="hidden" id="e_existingPhotoUrl">
     <div class="modal-actions">
       <button class="btn-secondary" onclick="closeModal('entryModalBackdrop')">Άκυρο</button>
@@ -288,7 +320,6 @@ document.getElementById('passcodeInput').addEventListener('keydown', function(e)
 function showApp(){
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('app').style.display='block';
-  document.getElementById('diaryDate').valueAsDate = new Date();
   loadSchedule();
   loadEntries();
   initOneSignal();
@@ -304,7 +335,18 @@ function switchTab(tab){
   document.getElementById('headerTitle').textContent = tab==='schedule' ? 'Πρόγραμμα' : 'Ημερολόγιο';
   document.getElementById('fabBtn').onclick = tab==='schedule' ? openAddScheduleModal : openAddEntryModal;
 }
-document.getElementById('diaryDate').addEventListener('change', renderEntries);
+
+var today = new Date();
+var currentYear = today.getFullYear();
+var currentMonth = today.getMonth(); // 0-11
+var MONTH_NAMES = ['Ιανουάριος','Φεβρουάριος','Μάρτιος','Απρίλιος','Μάιος','Ιούνιος','Ιούλιος','Αύγουστος','Σεπτέμβριος','Οκτώβριος','Νοέμβριος','Δεκέμβριος'];
+
+function changeMonth(delta){
+  currentMonth += delta;
+  if(currentMonth < 0){ currentMonth = 11; currentYear--; }
+  if(currentMonth > 11){ currentMonth = 0; currentYear++; }
+  renderEntries();
+}
 
 function apiPost(body){
   return fetch(API_URL, {
@@ -401,24 +443,72 @@ function loadEntries(){
   });
 }
 function renderEntries(){
-  var dateVal = document.getElementById('diaryDate').value;
-  var list = entries.filter(function(e){ return e.date===dateVal; });
+  document.getElementById('monthLabel').textContent = MONTH_NAMES[currentMonth] + ' ' + currentYear;
+  var prefix = currentYear + '-' + String(currentMonth+1).padStart(2,'0');
+  var list = entries.filter(function(e){ return e.date && e.date.indexOf(prefix)===0; })
+    .sort(function(a,b){ return a.date.localeCompare(b.date); });
   var el = document.getElementById('entriesList');
-  if(list.length===0){ el.innerHTML = '<div class="empty">Καμία σημείωση για αυτή την ημέρα.</div>'; return; }
-  el.innerHTML = list.map(function(e){
-    return '' +
+  if(list.length===0){ el.innerHTML = '<div class="empty">Καμία σημείωση αυτόν τον μήνα.</div>'; return; }
+  var html = '';
+  var lastDate = null;
+  list.forEach(function(e){
+    if(e.date !== lastDate){
+      var parts = e.date.split('-');
+      html += '<div class="day-label">' + parts[2] + '/' + parts[1] + '/' + parts[0] + '</div>';
+      lastDate = e.date;
+    }
+    var titleHtml = e.label
+      ? '<span class="label-badge label-' + e.label + '">' + escapeHtml(e.subject||'') + '</span>'
+      : (e.subject? '<div class="subj">' + escapeHtml(e.subject) + '</div>':'');
+    html += '' +
     '<div class="card entry">' +
       '<div class="info">' +
-        (e.subject? '<div class="subj">' + escapeHtml(e.subject) + '</div>':'') +
+        titleHtml +
         (e.notes? '<div class="meta">' + escapeHtml(e.notes) + '</div>':'') +
         (e.photoUrl? '<img class="thumb" src="' + e.photoUrl + '">':'') +
       '</div>' +
       '<div class="actions">' +
+        (e.photoUrl? '<button onclick="printEntry(\'' + e.id + '\')">&#128424;</button>':'') +
         '<button onclick="editEntry(\'' + e.id + '\')">&#9998;</button>' +
         '<button onclick="deleteEntry(\'' + e.id + '\')">&#128465;</button>' +
       '</div>' +
     '</div>';
-  }).join('');
+  });
+  el.innerHTML = html;
+}
+
+function printEntry(id){
+  var e = entries.find(function(x){ return x.id===id; });
+  if(!e) return;
+  var w = window.open('', '_blank');
+  w.document.write(
+    '<html><head><title>Εκτύπωση</title></head>' +
+    '<body style="margin:0;text-align:center;font-family:sans-serif;">' +
+    '<img src="' + e.photoUrl + '" style="max-width:100%;" onload="window.print()">' +
+    (e.notes? '<p style="padding:20px;text-align:left;">' + escapeHtml(e.notes) + '</p>':'') +
+    '</body></html>'
+  );
+  w.document.close();
+}
+
+function selectLabel(label){
+  document.getElementById('e_label').value = label;
+  var swatches = document.querySelectorAll('#labelPicker .label-swatch');
+  swatches.forEach(function(s, idx){
+    var labels = ['', 'red', 'yellow', 'pink'];
+    s.classList.toggle('selected', labels[idx]===label);
+  });
+}
+
+function changePasscodeFlow(){
+  var oldCode = prompt('Τρέχων κωδικός:');
+  if(oldCode===null) return;
+  var newCode = prompt('Νέος κωδικός:');
+  if(newCode===null || newCode==='') return;
+  apiPost({action:'changePasscode', oldCode:oldCode, newCode:newCode}).then(function(res){
+    if(res.ok){ alert('Ο κωδικός άλλαξε.'); }
+    else { alert('Σφάλμα: ' + res.error); }
+  }).catch(function(){ alert('Σφάλμα σύνδεσης.'); });
 }
 function openAddEntryModal(){
   document.getElementById('entryModalTitle').textContent = 'Νέα σημείωση';
@@ -426,11 +516,17 @@ function openAddEntryModal(){
   document.getElementById('e_subject').value='';
   document.getElementById('e_notes').value='';
   document.getElementById('e_existingPhotoUrl').value='';
-  document.getElementById('e_date').value = document.getElementById('diaryDate').value;
+  var now = new Date();
+  if(now.getFullYear()===currentYear && now.getMonth()===currentMonth){
+    document.getElementById('e_date').value = now.toISOString().slice(0,10);
+  } else {
+    document.getElementById('e_date').value = currentYear + '-' + String(currentMonth+1).padStart(2,'0') + '-01';
+  }
   document.getElementById('e_photoPreview').style.display='none';
   document.getElementById('ocrBtn').style.display='none';
   document.getElementById('ocrHint').textContent='';
   selectedPhotoBase64 = null;
+  selectLabel('');
   document.getElementById('entryModalBackdrop').classList.add('show');
 }
 function editEntry(id){
@@ -447,6 +543,7 @@ function editEntry(id){
   document.getElementById('ocrBtn').style.display='none';
   document.getElementById('ocrHint').textContent='';
   selectedPhotoBase64 = null;
+  selectLabel(e.label || '');
   document.getElementById('entryModalBackdrop').classList.add('show');
 }
 function onPhotoSelected(ev){
@@ -520,7 +617,8 @@ function saveEntry(){
     id: id || undefined,
     date: document.getElementById('e_date').value,
     subject: document.getElementById('e_subject').value,
-    notes: document.getElementById('e_notes').value
+    notes: document.getElementById('e_notes').value,
+    label: document.getElementById('e_label').value
   };
   if(selectedPhotoBase64){
     entry.photoBase64 = selectedPhotoBase64;
