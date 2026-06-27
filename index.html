@@ -468,7 +468,9 @@ function runOcr(){
   var btn = document.getElementById('ocrBtn');
   btn.textContent = 'Μετατρέπεται...';
   btn.disabled = true;
-  apiPost({action:'ocrImage', imageBase64:selectedPhotoBase64, mimeType:selectedPhotoMime}).then(function(res){
+  preprocessForOcr(selectedPhotoBase64, selectedPhotoMime).then(function(processedBase64){
+    return apiPost({action:'ocrImage', imageBase64:processedBase64, mimeType:'image/jpeg'});
+  }).then(function(res){
     btn.textContent = 'Μετατροπή φωτό σε κείμενο';
     btn.disabled = false;
     if(res.ok){
@@ -482,6 +484,34 @@ function runOcr(){
     btn.textContent = 'Μετατροπή φωτό σε κείμενο';
     btn.disabled = false;
     document.getElementById('ocrHint').textContent = 'Σφάλμα σύνδεσης κατά τη μετατροπή.';
+  });
+}
+
+function preprocessForOcr(base64, mime){
+  return new Promise(function(resolve){
+    var img = new Image();
+    img.onload = function(){
+      var maxDim = 1800;
+      var scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      var canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      var d = imgData.data;
+      var contrast = 1.5;
+      for(var i=0; i<d.length; i+=4){
+        var gray = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+        gray = (gray - 128) * contrast + 128;
+        gray = gray < 0 ? 0 : (gray > 255 ? 255 : gray);
+        d[i] = d[i+1] = d[i+2] = gray;
+      }
+      ctx.putImageData(imgData, 0, 0);
+      resolve(canvas.toDataURL('image/jpeg', 0.92).split(',')[1]);
+    };
+    img.onerror = function(){ resolve(base64); };
+    img.src = 'data:' + mime + ';base64,' + base64;
   });
 }
 function saveEntry(){
