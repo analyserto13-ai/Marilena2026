@@ -250,6 +250,10 @@
       </div>
       <div id="entriesList"></div>
     </section>
+
+    <section class="view" id="view-notes">
+      <div id="notesList"></div>
+    </section>
   </main>
 
   <button class="fab" id="fabBtn" onclick="openAddModal()">+</button>
@@ -260,6 +264,9 @@
     </button>
     <button data-tab="diary" onclick="switchTab('diary')">
       <span class="ic">&#128209;</span>Ημερολόγιο
+    </button>
+    <button data-tab="notes" onclick="switchTab('notes')">
+      <span class="ic">&#128221;</span>Σημειώσεις
     </button>
   </nav>
 </div>
@@ -321,6 +328,26 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="noteModalBackdrop">
+  <div class="modal">
+    <h2 id="noteModalTitle">Νέα σημείωση</h2>
+    <div class="field"><label>Τίτλος</label><input type="text" id="n_title" placeholder="π.χ. Δρομολόγια λεωφορείων"></div>
+    <div class="field"><label>Link</label><input type="url" id="n_link" placeholder="https://..."></div>
+    <div class="field"><label>Κείμενο</label><textarea id="n_text" placeholder="Σημειώσεις..."></textarea></div>
+    <div class="field">
+      <label>Φωτογραφία</label>
+      <input type="file" id="n_photo" accept="image/*" onchange="onNotePhotoSelected(event)">
+      <img id="n_photoPreview" class="photo-preview">
+    </div>
+    <input type="hidden" id="n_noteId">
+    <input type="hidden" id="n_existingPhotoUrl">
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="dismissOverlay('noteModalBackdrop')">Άκυρο</button>
+      <button class="btn-primary" id="noteSaveBtn" onclick="saveNote()">Αποθήκευση</button>
+    </div>
+  </div>
+</div>
+
 <div id="printOverlay">
   <img id="printImg">
   <p id="printNotes"></p>
@@ -336,6 +363,7 @@ const ONESIGNAL_APP_ID = '2d9a58e0-5b0b-47fe-b251-57865ce97fb8';
 
 let schedule = [];
 let entries = [];
+let notes = [];
 let selectedPhotoBase64 = null;
 let selectedPhotoMime = null;
 
@@ -359,6 +387,7 @@ function showApp(){
   document.getElementById('app').style.display='block';
   loadSchedule();
   loadEntries();
+  loadNotes();
   initOneSignal();
 }
 
@@ -369,8 +398,11 @@ function switchTab(tab){
   for(var i=0;i<btns.length;i++){ btns[i].classList.toggle('active', btns[i].dataset.tab===tab); }
   document.getElementById('view-schedule').classList.toggle('active', tab==='schedule');
   document.getElementById('view-diary').classList.toggle('active', tab==='diary');
-  document.getElementById('headerTitle').textContent = tab==='schedule' ? 'Πρόγραμμα' : 'Ημερολόγιο';
-  document.getElementById('fabBtn').onclick = tab==='schedule' ? openAddScheduleModal : openAddEntryModal;
+  document.getElementById('view-notes').classList.toggle('active', tab==='notes');
+  var titles = {schedule:'Πρόγραμμα', diary:'Ημερολόγιο', notes:'Σημειώσεις'};
+  document.getElementById('headerTitle').textContent = titles[tab];
+  var openers = {schedule:openAddScheduleModal, diary:openAddEntryModal, notes:openAddNoteModal};
+  document.getElementById('fabBtn').onclick = openers[tab];
 }
 
 var today = new Date();
@@ -518,7 +550,7 @@ function renderEntries(){
 function printEntry(id){
   var e = entries.find(function(x){ return x.id===id; });
   if(!e) return;
-  document.getElementById('printImg').src = e.photoUrl;
+  document.getElementById('printImg').src = e.photoUrl || '';
   document.getElementById('printNotes').textContent = e.notes || '';
   openOverlay('printOverlay');
 }
@@ -527,6 +559,138 @@ function closePrintOverlay(){
 }
 function doPrint(){
   window.print();
+}
+
+// ---------- NOTES (γενικές σημειώσεις: link, φωτό, κείμενο) ----------
+
+function loadNotes(){
+  apiGet('getNotes').then(function(res){
+    if(res.ok){ notes = res.data; renderNotes(); }
+  });
+}
+function renderNotes(){
+  var el = document.getElementById('notesList');
+  if(notes.length===0){ el.innerHTML = '<div class="empty">Καμία σημείωση ακόμα.<br>Πάτησε + για να προσθέσεις.</div>'; return; }
+  el.innerHTML = notes.slice().reverse().map(function(n){
+    return '' +
+    '<div class="card entry" onclick="editNote(\'' + n.id + '\')" style="cursor:pointer;">' +
+      '<div class="info">' +
+        (n.title? '<div class="subj">' + escapeHtml(n.title) + '</div>':'') +
+        (n.link? '<div class="meta">&#128279; ' + escapeHtml(n.link) + '</div>':'') +
+        (n.text? '<div class="meta">' + escapeHtml(n.text) + '</div>':'') +
+        (n.photoUrl? '<div class="meta" style="font-style:italic;">&#128247; έχει φωτογραφία</div>':'') +
+      '</div>' +
+      '<div class="actions">' +
+        '<button onclick="event.stopPropagation();shareNote(\'' + n.id + '\')">&#128229;</button>' +
+        (n.photoUrl? '<button onclick="event.stopPropagation();printNote(\'' + n.id + '\')">&#128424;</button>':'') +
+        '<button onclick="event.stopPropagation();deleteNoteUI(\'' + n.id + '\')">&#128465;</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+function openAddNoteModal(){
+  document.getElementById('noteModalTitle').textContent = 'Νέα σημείωση';
+  document.getElementById('n_noteId').value = '';
+  document.getElementById('n_title').value = '';
+  document.getElementById('n_link').value = '';
+  document.getElementById('n_text').value = '';
+  document.getElementById('n_existingPhotoUrl').value = '';
+  document.getElementById('n_photoPreview').style.display = 'none';
+  selectedPhotoBase64 = null;
+  openOverlay('noteModalBackdrop');
+}
+function editNote(id){
+  var n = notes.find(function(x){ return x.id===id; });
+  if(!n) return;
+  document.getElementById('noteModalTitle').textContent = 'Επεξεργασία σημείωσης';
+  document.getElementById('n_noteId').value = n.id;
+  document.getElementById('n_title').value = n.title;
+  document.getElementById('n_link').value = n.link;
+  document.getElementById('n_text').value = n.text;
+  document.getElementById('n_existingPhotoUrl').value = n.photoUrl;
+  var prev = document.getElementById('n_photoPreview');
+  if(n.photoUrl){ prev.src = n.photoUrl; prev.style.display='block'; } else { prev.style.display='none'; }
+  selectedPhotoBase64 = null;
+  openOverlay('noteModalBackdrop');
+}
+function onNotePhotoSelected(ev){
+  var file = ev.target.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(){
+    var rawDataUrl = reader.result;
+    var img = new Image();
+    img.onload = function(){
+      var maxDim = 1800;
+      var scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      var canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      var jpegDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      selectedPhotoMime = 'image/jpeg';
+      selectedPhotoBase64 = jpegDataUrl.split(',')[1];
+      document.getElementById('n_photoPreview').src = jpegDataUrl;
+      document.getElementById('n_photoPreview').style.display = 'block';
+    };
+    img.onerror = function(){
+      selectedPhotoMime = file.type || 'image/jpeg';
+      selectedPhotoBase64 = rawDataUrl.split(',')[1];
+      document.getElementById('n_photoPreview').src = rawDataUrl;
+      document.getElementById('n_photoPreview').style.display = 'block';
+    };
+    img.src = rawDataUrl;
+  };
+  reader.readAsDataURL(file);
+}
+function saveNote(){
+  var id = document.getElementById('n_noteId').value;
+  var note = {
+    id: id || undefined,
+    title: document.getElementById('n_title').value,
+    link: document.getElementById('n_link').value,
+    text: document.getElementById('n_text').value
+  };
+  if(selectedPhotoBase64){
+    note.photoBase64 = selectedPhotoBase64;
+    note.mimeType = selectedPhotoMime;
+  }
+  var action = id ? 'updateNote' : 'addNote';
+  var btn = document.getElementById('noteSaveBtn');
+  btn.textContent = 'Αποθήκευση...'; btn.disabled = true;
+  apiPost({action:action, note:note}).then(function(){
+    btn.textContent = 'Αποθήκευση'; btn.disabled = false;
+    dismissOverlay('noteModalBackdrop');
+    loadNotes();
+  }).catch(function(){ btn.textContent = 'Αποθήκευση'; btn.disabled = false; });
+}
+function deleteNoteUI(id){
+  if(!confirm('Διαγραφή σημείωσης;')) return;
+  apiPost({action:'deleteNote', id:id}).then(function(){ loadNotes(); });
+}
+function printNote(id){
+  var n = notes.find(function(x){ return x.id===id; });
+  if(!n) return;
+  document.getElementById('printImg').src = n.photoUrl || '';
+  document.getElementById('printNotes').textContent = [n.title, n.text, n.link].filter(Boolean).join('\n');
+  openOverlay('printOverlay');
+}
+function shareNote(id){
+  var n = notes.find(function(x){ return x.id===id; });
+  if(!n) return;
+  var shareData = {
+    title: n.title || 'Σημείωση',
+    text: [n.title, n.text].filter(Boolean).join('\n'),
+    url: n.link || undefined
+  };
+  if(navigator.share){
+    navigator.share(shareData).catch(function(){});
+  } else {
+    var body = encodeURIComponent((n.text||'') + (n.link? '\n' + n.link : ''));
+    var subject = encodeURIComponent(n.title || 'Σημείωση');
+    window.location.href = 'mailto:?subject=' + subject + '&body=' + body;
+  }
 }
 
 function selectLabel(label){
@@ -717,6 +881,7 @@ window.addEventListener('popstate', function(){
     historyDepth--;
     closeModal('scheduleModalBackdrop');
     closeModal('entryModalBackdrop');
+    closeModal('noteModalBackdrop');
     closePrintOverlay();
   }
 });
