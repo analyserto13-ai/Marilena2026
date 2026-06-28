@@ -137,6 +137,10 @@
   .settings-btn{
     position:absolute; top:20px; right:16px; background:none; border:none; font-size:20px; color:var(--muted);
   }
+  .logout-btn{
+    position:absolute; top:24px; left:18px; background:none; border:none; font-size:13px;
+    font-weight:600; color:var(--red); text-decoration:underline;
+  }
 
   #printOverlay{
     display:none; position:fixed; inset:0; background:white; z-index:500;
@@ -222,6 +226,7 @@
 
   <header class="topbar">
     <div class="dots"><span></span><span></span><span></span><span></span><span></span></div>
+    <button class="logout-btn" onclick="logout()">Έξοδος</button>
     <button class="settings-btn" onclick="changePasscodeFlow()">&#9881;</button>
     <h1 id="headerTitle">Πρόγραμμα</h1>
     <p id="headerSubtitle"></p>
@@ -380,10 +385,11 @@ function apiPost(body){
     body: JSON.stringify(body)
   }).then(function(r){ return r.json(); });
 }
+var jsonpCounter = 0;
 function apiGet(action, extraParams){
   extraParams = extraParams || '';
   return new Promise(function(resolve,reject){
-    var cbName = 'cb_' + Date.now();
+    var cbName = 'cb_' + Date.now() + '_' + (jsonpCounter++);
     window[cbName] = function(res){ resolve(res); delete window[cbName]; script.remove(); };
     var script = document.createElement('script');
     script.src = API_URL + '?action=' + action + '&callback=' + cbName + extraParams;
@@ -486,16 +492,16 @@ function renderEntries(){
       ? '<span class="label-badge label-' + e.label + '">' + escapeHtml(e.subject||'') + '</span>'
       : (e.subject? '<div class="subj">' + escapeHtml(e.subject) + '</div>':'');
     html += '' +
-    '<div class="card entry">' +
+    '<div class="card entry" onclick="editEntry(\'' + e.id + '\')" style="cursor:pointer;">' +
       '<div class="info">' +
         titleHtml +
         (e.notes? '<div class="meta">' + escapeHtml(e.notes) + '</div>':'') +
-        (e.photoUrl? '<img class="thumb" src="' + e.photoUrl + '">':'') +
+        (e.photoUrl? '<div class="meta" style="font-style:italic;">&#128247; έχει φωτογραφία</div>':'') +
       '</div>' +
       '<div class="actions">' +
-        (e.photoUrl? '<button onclick="printEntry(\'' + e.id + '\')">&#128424;</button>':'') +
-        '<button onclick="editEntry(\'' + e.id + '\')">&#9998;</button>' +
-        '<button onclick="deleteEntry(\'' + e.id + '\')">&#128465;</button>' +
+        (e.photoUrl? '<button onclick="event.stopPropagation();printEntry(\'' + e.id + '\')">&#128424;</button>':'') +
+        '<button onclick="event.stopPropagation();editEntry(\'' + e.id + '\')">&#9998;</button>' +
+        '<button onclick="event.stopPropagation();deleteEntry(\'' + e.id + '\')">&#128465;</button>' +
       '</div>' +
     '</div>';
   });
@@ -523,6 +529,14 @@ function selectLabel(label){
     var labels = ['', 'red', 'yellow', 'pink'];
     s.classList.toggle('selected', labels[idx]===label);
   });
+}
+
+function logout(){
+  sessionStorage.removeItem('marilena_auth');
+  document.getElementById('app').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('passcodeInput').value='';
+  document.getElementById('loginError').textContent='';
 }
 
 function changePasscodeFlow(){
