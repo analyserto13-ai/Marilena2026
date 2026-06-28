@@ -750,7 +750,7 @@ function editEntry(id){
   document.getElementById('e_existingPhotoUrl').value = e.photoUrl;
   var prev = document.getElementById('e_photoPreview');
   if(e.photoUrl){ prev.src = e.photoUrl; prev.style.display='block'; } else { prev.style.display='none'; }
-  document.getElementById('ocrBtn').style.display='none';
+  document.getElementById('ocrBtn').style.display = e.photoUrl ? 'block' : 'none';
   document.getElementById('ocrHint').textContent='';
   selectedPhotoBase64 = null;
   selectLabel(e.label || '');
@@ -792,13 +792,21 @@ function onPhotoSelected(ev){
   reader.readAsDataURL(file);
 }
 function runOcr(){
-  if(!selectedPhotoBase64) return;
   var btn = document.getElementById('ocrBtn');
+  var existingUrl = document.getElementById('e_existingPhotoUrl').value;
+  var apiCall;
+  if(selectedPhotoBase64){
+    apiCall = preprocessForOcr(selectedPhotoBase64, selectedPhotoMime).then(function(processedBase64){
+      return apiPost({action:'ocrImage', imageBase64:processedBase64, mimeType:'image/jpeg'});
+    });
+  } else if(existingUrl){
+    apiCall = apiPost({action:'ocrFromUrl', photoUrl:existingUrl});
+  } else {
+    return;
+  }
   btn.textContent = 'Μετατρέπεται...';
   btn.disabled = true;
-  preprocessForOcr(selectedPhotoBase64, selectedPhotoMime).then(function(processedBase64){
-    return apiPost({action:'ocrImage', imageBase64:processedBase64, mimeType:'image/jpeg'});
-  }).then(function(res){
+  apiCall.then(function(res){
     btn.textContent = 'Μετατροπή φωτό σε κείμενο';
     btn.disabled = false;
     if(res.ok){
