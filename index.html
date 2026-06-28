@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Marilena 2026</title>
 <link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="shortcut icon" type="image/png" href="icon-192.png">
 <meta name="theme-color" content="#FBF7EE">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -134,12 +136,15 @@
   .label-swatch{width:32px;height:32px;border-radius:50%; border:2px solid var(--border); padding:0; cursor:pointer;}
   .label-swatch.selected{border-color:var(--ink); box-shadow:0 0 0 2px var(--paper), 0 0 0 4px var(--ink);}
 
+  .header-actions{
+    position:absolute; top:18px; right:14px; display:flex; align-items:center; gap:12px;
+  }
   .settings-btn{
-    position:absolute; top:20px; right:16px; background:none; border:none; font-size:20px; color:var(--muted);
+    background:none; border:none; font-size:19px; color:var(--muted); padding:4px;
   }
   .logout-btn{
-    position:absolute; top:24px; left:18px; background:none; border:none; font-size:13px;
-    font-weight:600; color:var(--red); text-decoration:underline;
+    background:var(--border); border:none; font-size:12px; font-weight:700; color:var(--ink);
+    padding:6px 12px; border-radius:14px;
   }
 
   #printOverlay{
@@ -215,7 +220,7 @@
 <body>
 
 <div id="loginScreen">
-  <div class="mark">M</div>
+  <div class="mark">&#10084;</div>
   <h1 style="font-size:22px;">Marilena 2026</h1>
   <input id="passcodeInput" type="password" inputmode="text" placeholder="Κωδικός" autocomplete="off">
   <div id="loginError"></div>
@@ -226,8 +231,10 @@
 
   <header class="topbar">
     <div class="dots"><span></span><span></span><span></span><span></span><span></span></div>
-    <button class="logout-btn" onclick="logout()">Έξοδος</button>
-    <button class="settings-btn" onclick="changePasscodeFlow()">&#9881;</button>
+    <div class="header-actions">
+      <button class="logout-btn" onclick="logout()">&#8676; Έξοδος</button>
+      <button class="settings-btn" onclick="changePasscodeFlow()">&#9881;</button>
+    </div>
     <h1 id="headerTitle">Πρόγραμμα</h1>
     <p id="headerSubtitle"></p>
   </header>
@@ -276,7 +283,7 @@
     <div class="field"><label>Υπενθύμιση ειδοποίησης</label><input type="text" id="f_note" placeholder="π.χ. πρέπει να διαβάσω"></div>
     <input type="hidden" id="f_scheduleId">
     <div class="modal-actions">
-      <button class="btn-secondary" onclick="closeModal('scheduleModalBackdrop')">Άκυρο</button>
+      <button class="btn-secondary" onclick="dismissOverlay('scheduleModalBackdrop')">Άκυρο</button>
       <button class="btn-primary" onclick="saveScheduleItem()">Αποθήκευση</button>
     </div>
   </div>
@@ -308,7 +315,7 @@
     <input type="hidden" id="e_label">
     <input type="hidden" id="e_existingPhotoUrl">
     <div class="modal-actions">
-      <button class="btn-secondary" onclick="closeModal('entryModalBackdrop')">Άκυρο</button>
+      <button class="btn-secondary" onclick="dismissOverlay('entryModalBackdrop')">Άκυρο</button>
       <button class="btn-primary" id="entrySaveBtn" onclick="saveEntry()">Αποθήκευση</button>
     </div>
   </div>
@@ -319,7 +326,7 @@
   <p id="printNotes"></p>
   <div class="print-actions">
     <button class="btn-primary" onclick="doPrint()">Εκτύπωση</button>
-    <button class="btn-secondary" onclick="closePrintOverlay()">Κλείσιμο</button>
+    <button class="btn-secondary" onclick="dismissOverlay('printOverlay')">Κλείσιμο</button>
   </div>
 </div>
 
@@ -434,7 +441,7 @@ function openAddScheduleModal(){
   document.getElementById('scheduleModalTitle').textContent = 'Νέο μάθημα';
   ['f_scheduleId','f_timeFrom','f_timeTo','f_subject','f_location','f_note'].forEach(function(id){ document.getElementById(id).value=''; });
   document.getElementById('f_day').selectedIndex = 0;
-  document.getElementById('scheduleModalBackdrop').classList.add('show');
+  openOverlay('scheduleModalBackdrop');
 }
 function editScheduleItem(id){
   var s = schedule.find(function(x){ return x.id===id; });
@@ -447,7 +454,7 @@ function editScheduleItem(id){
   document.getElementById('f_subject').value = s.subject;
   document.getElementById('f_location').value = s.location;
   document.getElementById('f_note').value = s.note;
-  document.getElementById('scheduleModalBackdrop').classList.add('show');
+  openOverlay('scheduleModalBackdrop');
 }
 function saveScheduleItem(){
   var id = document.getElementById('f_scheduleId').value;
@@ -461,7 +468,7 @@ function saveScheduleItem(){
     note: document.getElementById('f_note').value
   };
   var action = id ? 'updateScheduleItem' : 'addScheduleItem';
-  apiPost({action:action, item:item}).then(function(){ closeModal('scheduleModalBackdrop'); loadSchedule(); });
+  apiPost({action:action, item:item}).then(function(){ dismissOverlay('scheduleModalBackdrop'); loadSchedule(); });
 }
 function deleteScheduleItem(id){
   if(!confirm('Διαγραφή μαθήματος;')) return;
@@ -513,7 +520,7 @@ function printEntry(id){
   if(!e) return;
   document.getElementById('printImg').src = e.photoUrl;
   document.getElementById('printNotes').textContent = e.notes || '';
-  document.getElementById('printOverlay').classList.add('show');
+  openOverlay('printOverlay');
 }
 function closePrintOverlay(){
   document.getElementById('printOverlay').classList.remove('show');
@@ -566,7 +573,7 @@ function openAddEntryModal(){
   document.getElementById('ocrHint').textContent='';
   selectedPhotoBase64 = null;
   selectLabel('');
-  document.getElementById('entryModalBackdrop').classList.add('show');
+  openOverlay('entryModalBackdrop');
 }
 function editEntry(id){
   var e = entries.find(function(x){ return x.id===id; });
@@ -583,7 +590,7 @@ function editEntry(id){
   document.getElementById('ocrHint').textContent='';
   selectedPhotoBase64 = null;
   selectLabel(e.label || '');
-  document.getElementById('entryModalBackdrop').classList.add('show');
+  openOverlay('entryModalBackdrop');
 }
 function onPhotoSelected(ev){
   var file = ev.target.files[0];
@@ -689,7 +696,7 @@ function saveEntry(){
   btn.textContent = 'Αποθήκευση...'; btn.disabled = true;
   apiPost({action:action, entry:entry}).then(function(){
     btn.textContent='Αποθήκευση'; btn.disabled=false;
-    closeModal('entryModalBackdrop');
+    dismissOverlay('entryModalBackdrop');
     loadEntries();
   }).catch(function(){ btn.textContent='Αποθήκευση'; btn.disabled=false; });
 }
@@ -699,7 +706,28 @@ function deleteEntry(id){
 }
 
 function openAddModal(){ openAddScheduleModal(); }
-function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+var historyDepth = 0;
+function openOverlay(id){
+  document.getElementById(id).classList.add('show');
+  history.pushState({marilenaOverlay:true}, '');
+  historyDepth++;
+}
+window.addEventListener('popstate', function(){
+  if(historyDepth>0){
+    historyDepth--;
+    closeModal('scheduleModalBackdrop');
+    closeModal('entryModalBackdrop');
+    closePrintOverlay();
+  }
+});
+
+function closeModal(id){
+  document.getElementById(id).classList.remove('show');
+}
+function dismissOverlay(id){
+  document.getElementById(id).classList.remove('show');
+  if(historyDepth>0){ history.back(); }
+}
 function escapeHtml(s){
   return (s||'').replace(/[&<>"']/g, function(c){
     return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
